@@ -1,8 +1,15 @@
 """
-by: Aaron Finocchiaro
-APCV 498 - Senior Capstone
+bls_data
 
-A class designed to interact with the bls.gov API.
+This file contains the BlsData class that interacts with the Bureau of Labor Statistics API. It formats the
+returned data into a Pandas dataframe in addition to being able to create basic graphs and tables with the 
+data using plotly. 
+
+Currently works with all data on the BLS website, however _get_location only works with series IDs that start
+with the following values:
+    - EN
+    - LA
+    - OE
 """
 import json
 import os
@@ -11,26 +18,38 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import requests
-from pybls import la_area_codes_df, oes_area_codes_df, qcew_area_codes_df
+from bls_data import la_area_codes_df, oes_area_codes_df, qcew_area_codes_df
 
 
 BLS_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/'
 
 class BlsData():
     """
-    A class designed to interact with the Bureau of Labor Statistics public API and
-    translate the data into a Pandas Dataframe.
+    Formats and sends request to Bureau of Labor Statistics API, and creates 2 pandas 
+    dataframe from the returned data.
+
+    Arguments:
+        series_ids = list; a list of series IDs that correspond to some BLS data
+        start_year = int; the first year to collect data from
+        end_year = int; the final year to collect data from
+    
+    Attributes:
+        raw_data = raw json data returned from the API endpoint
+        raw_df = dataframe created from translating json to pandas DF
+        df = dataframe that has been cleaned and modified to be more human-readable and easier to graph
+        locations = only available on certain series IDs, gets the locations that data pertains to
     """
     def __init__(self, series_ids:list, start_year:int, end_year:str, raw_data=None):
 
         self.series_ids = series_ids
         self.start_year = start_year
         self.end_year = end_year
+        self.messages = []
 
         self.raw_data = raw_data if raw_data else self._request_bls_data()
 
         self.raw_df = self._construct_df()
-        self.df = self._organize_df()
+        self.df = self._organize_df() if len(self.raw_df) > 0 else None
         self.locations = self._get_location()
 
     @classmethod
@@ -60,6 +79,9 @@ class BlsData():
         based on the given attributes.
         Returns a list containing the raw results from the BLS api call.
         """
+        if 'BLS_API_KEY' not in os.environ:
+            raise ValueError("BLS_API_KEY environment variable must be set.")
+
         headers = {
             'content-type' : 'application/json',
         }
@@ -76,7 +98,8 @@ class BlsData():
         #make post request
         response = requests.post(BLS_URL, data=data, headers=headers)
 
-        return response.json()['Results']['series']
+        self.messages = response.json()['message']
+        return response.json()['Results'].get('series')
 
     def _construct_df(self) -> pd.DataFrame:
         """
@@ -88,8 +111,11 @@ class BlsData():
         cols = ['year', 'period']
         bls_df = pd.DataFrame(columns=cols)
 
-        #use for loop to create df
+        #use for loop to create df, skip entries that returned no data
         for bls_series in self.raw_data:
+            if not bool(bls_series['data']):
+                continue
+
             series_df = pd.DataFrame(bls_series['data'])
             series_df = series_df[cols + ['value']]
             series_df['value'] = pd.to_numeric(series_df['value'])

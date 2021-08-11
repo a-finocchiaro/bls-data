@@ -1,0 +1,10 @@
+LICENSE.txt
+README.md
+pyproject.toml
+setup.cfg
+setup.py
+bls_data/bls_data.egg-info/PKG-INFO
+bls_data/bls_data.egg-info/SOURCES.txt
+bls_data/bls_data.egg-info/dependency_links.txt
+bls_data/bls_data.egg-info/requires.txt
+bls_data/bls_data.egg-info/top_level.txt

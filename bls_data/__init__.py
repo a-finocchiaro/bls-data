@@ -1,7 +1,4 @@
 """
-Written by: Aaron Finocchiaro
-3/2021
-
 pybls module is designed to interact with the Bureau of Labor Statistics
 API and translate returned json data into pandas dataframes.
 
